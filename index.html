@@ -144,6 +144,13 @@
             box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);
         }
 
+        .upload-btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
         .toast {
             position: fixed;
             top: 80px;
@@ -219,7 +226,6 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
     <script>
         (function() {
             // Ensure Firebase is loaded
@@ -289,21 +295,6 @@
                     });
             });
 
-            // Encryption functions
-            const BASE_PASSPHRASE = 'ISET_Siliana_Secure_2025!@#$';
-
-            function deriveKey(salt) {
-                return CryptoJS.PBKDF2(BASE_PASSPHRASE, salt, {
-                    keySize: 256 / 32,
-                    iterations: 10000
-                }).toString();
-            }
-
-            function encryptData(data, salt) {
-                const key = deriveKey(salt);
-                return CryptoJS.AES.encrypt(data, key).toString();
-            }
-
             uploadFileBtn.addEventListener('click', async () => {
                 const file = fileInput.files[0];
                 if (!file) {
@@ -311,40 +302,54 @@
                     return;
                 }
 
-                const maxSize = 10 * 1024 * 1024;
+                const maxSize = 20 * 1024 * 1024; // Allow up to 20 MB
                 if (file.size > maxSize) {
-                    showToast('File too large. Max 10 MB.');
+                    showToast('File too large. Max 20 MB.');
                     return;
                 }
+
+                uploadFileBtn.disabled = true;
+                showToast('Uploading file...');
 
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     const base64String = e.target.result.split(',')[1];
-                    const salt = CryptoJS.lib.WordArray.random(16).toString();
-                    const encryptedData = encryptData(base64String, salt);
-                    const chunkSize = 4 * 1024 * 1024;
+                    const chunkSize = 6 * 1024 * 1024; // Increased to 6 MB for fewer chunks
                     const chunks = [];
-                    for (let i = 0; i < encryptedData.length; i += chunkSize) {
-                        chunks.push(encryptedData.substring(i, i + chunkSize));
+                    for (let i = 0; i < base64String.length; i += chunkSize) {
+                        chunks.push(base64String.substring(i, i + chunkSize));
                     }
 
                     const fileName = sanitizeInput(file.name);
                     const fileType = file.type || 'application/octet-stream';
-                    const uploadDate = new Date().toISOString();
 
-                    const newFileRef = db.ref('sharedFiles').push();
-                    await newFileRef.set({
-                        fileName,
-                        fileType,
-                        uploadDate,
-                        chunks,
-                        chunkCount: chunks.length,
-                        salt
-                    });
+                    try {
+                        const newFileRef = db.ref('sharedFiles').push();
+                        const fileId = newFileRef.key;
 
-                    showToast('File uploaded successfully');
-                    uploadModal.style.display = 'none';
-                    fileInput.value = '';
+                        // Upload chunks in parallel
+                        const chunkUploads = chunks.map((chunk, index) => {
+                            return db.ref(`sharedFiles/${fileId}/chunks/${index}`).set(chunk);
+                        });
+
+                        await Promise.all(chunkUploads);
+
+                        // Set metadata after chunks are uploaded
+                        await newFileRef.update({
+                            fileName,
+                            fileType,
+                            chunkCount: chunks.length
+                        });
+
+                        showToast('File uploaded successfully');
+                        uploadModal.style.display = 'none';
+                        fileInput.value = '';
+                    } catch (error) {
+                        showToast('Upload failed: ' + error.message);
+                        console.error('Upload error:', error.message);
+                    } finally {
+                        uploadFileBtn.disabled = false;
+                    }
                 };
                 reader.readAsDataURL(file);
             });

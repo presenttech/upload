@@ -151,6 +151,34 @@
             box-shadow: none;
         }
 
+        .progress-container {
+            width: 100%;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3182ce, #63b3ed);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 14px;
+            color: #2d3748;
+        }
+
         .toast {
             position: fixed;
             top: 80px;
@@ -218,6 +246,12 @@
         <div id="upload-modal-content" class="modal-content">
             <h2>Upload File</h2>
             <input type="file" id="file-input" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt" aria-label="Select file to upload">
+            <div class="progress-container" id="progress-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-text" id="progress-text">0%</div>
+            </div>
             <button class="upload-btn" id="upload-file-btn" aria-label="Upload file">Upload</button>
         </div>
     </div>
@@ -270,6 +304,9 @@
             const uploadModal = document.getElementById('upload-modal');
             const fileInput = document.getElementById('file-input');
             const uploadFileBtn = document.getElementById('upload-file-btn');
+            const progressContainer = document.getElementById('progress-container');
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
 
             // Show login modal by default
             loginModal.style.display = 'flex';
@@ -309,12 +346,14 @@
                 }
 
                 uploadFileBtn.disabled = true;
-                showToast('Uploading file...');
+                progressContainer.style.display = 'block';
+                progressFill.style.width = '0%';
+                progressText.textContent = '0%';
 
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                     const base64String = e.target.result.split(',')[1];
-                    const chunkSize = 6 * 1024 * 1024; // Increased to 6 MB for fewer chunks
+                    const chunkSize = 6 * 1024 * 1024; // 6 MB chunks
                     const chunks = [];
                     for (let i = 0; i < base64String.length; i += chunkSize) {
                         chunks.push(base64String.substring(i, i + chunkSize));
@@ -327,9 +366,22 @@
                         const newFileRef = db.ref('sharedFiles').push();
                         const fileId = newFileRef.key;
 
-                        // Upload chunks in parallel
+                        // Track progress
+                        let chunksUploaded = 0;
+                        const totalChunks = chunks.length;
+
+                        const updateProgress = () => {
+                            chunksUploaded++;
+                            const percentage = Math.round((chunksUploaded / totalChunks) * 100);
+                            progressFill.style.width = `${percentage}%`;
+                            progressText.textContent = `${percentage}%`;
+                        };
+
+                        // Upload chunks in parallel with progress tracking
                         const chunkUploads = chunks.map((chunk, index) => {
-                            return db.ref(`sharedFiles/${fileId}/chunks/${index}`).set(chunk);
+                            return db.ref(`sharedFiles/${fileId}/chunks/${index}`).set(chunk).then(() => {
+                                updateProgress();
+                            });
                         });
 
                         await Promise.all(chunkUploads);
@@ -344,9 +396,11 @@
                         showToast('File uploaded successfully');
                         uploadModal.style.display = 'none';
                         fileInput.value = '';
+                        progressContainer.style.display = 'none';
                     } catch (error) {
                         showToast('Upload failed: ' + error.message);
                         console.error('Upload error:', error.message);
+                        progressContainer.style.display = 'none';
                     } finally {
                         uploadFileBtn.disabled = false;
                     }

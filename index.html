@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>ISET Siliana Professor - File Upload</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f8fafc;
+            color: #2d3748;
+            min-height: 100vh;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            user-select: none;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal {
+            display: flex;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+            animation: modalFadeIn 0.4s ease;
+        }
+
+        .modal-content {
+            background: #ffffff;
+            padding: 24px;
+            border-radius: 16px;
+            border: 2px solid #3182ce;
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            animation: modalSlideUp 0.5s ease;
+            text-align: center;
+        }
+
+        .modal-content h2 {
+            color: #2d3748;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .modal-content h2::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 3px;
+            background: linear-gradient(90deg, #3182ce, #63b3ed);
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            font-size: 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            color: #2d3748;
+        }
+
+        .modal-content button {
+            padding: 12px 24px;
+            margin: 8px 4px;
+            background: #3182ce;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .modal-content button:hover {
+            background: #63b3ed;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);
+        }
+
+        #upload-modal {
+            display: none;
+        }
+
+        #upload-modal-content {
+            text-align: center;
+        }
+
+        #upload-modal-content h2 {
+            margin-bottom: 20px;
+        }
+
+        #upload-modal-content input[type="file"] {
+            margin: 12px 0;
+            font-size: 14px;
+            color: #2d3748;
+        }
+
+        .upload-btn {
+            padding: 12px 24px;
+            margin: 8px 4px;
+            background: #3182ce;
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .upload-btn:hover {
+            background: #63b3ed;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);
+        }
+
+        .toast {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-50px);
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 400;
+            opacity: 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 3000;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes modalSlideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @media (max-width: 600px) {
+            .modal-content {
+                width: 90%;
+                padding: 20px;
+            }
+            .modal-content h2 {
+                font-size: 20px;
+            }
+            .modal-content input {
+                font-size: 13px;
+            }
+            .modal-content button, .upload-btn {
+                font-size: 13px;
+                padding: 10px 20px;
+            }
+            .toast {
+                font-size: 13px;
+                padding: 10px 20px;
+            }
+        }
+    </style>
+</head>
+<body oncopy="return false" oncut="return false" onpaste="return false">
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <h2>Login</h2>
+            <input type="email" id="email-input" placeholder="Email" aria-label="Enter email">
+            <input type="password" id="password-input" placeholder="Password" aria-label="Enter password">
+            <button id="login-btn" aria-label="Log in">Log In</button>
+        </div>
+    </div>
+    <div id="upload-modal" class="modal">
+        <div id="upload-modal-content" class="modal-content">
+            <h2>Share a File</h2>
+            <input type="file" id="file-input" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt" aria-label="Select file to upload">
+            <button class="upload-btn" id="upload-file-btn" aria-label="Upload file">Upload</button>
+        </div>
+    </div>
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script>
+        (function() {
+            // Ensure Firebase is loaded
+            if (typeof firebase === 'undefined') {
+                console.error('Firebase failed to load');
+                showToast('Failed to load Firebase. Please check your internet connection.');
+                return;
+            }
+
+            // Toast function
+            function showToast(message, duration = 3000) {
+                const toast = document.getElementById('toast');
+                if (toast) {
+                    toast.textContent = message;
+                    toast.classList.remove('hidden');
+                    toast.classList.add('show');
+                    setTimeout(() => {
+                        toast.classList.remove('show');
+                        toast.classList.add('hidden');
+                    }, duration);
+                }
+            }
+
+            // Firebase Configuration
+            const firebaseConfig = {
+                apiKey: "AIzaSyD2TT6oEZu6zLo5bvVDN2ctIV6VArO-kn0",
+                authDomain: "download-9b2c6.firebaseapp.com",
+                databaseURL: "https://download-9b2c6-default-rtdb.europe-west1.firebasedatabase.app",
+                projectId: "download-9b2c6",
+                storageBucket: "download-9b2c6.firebasestorage.app",
+                messagingSenderId: "749735866081",
+                appId: "1:749735866081:web:236175aa5f605d224ed1a0"
+            };
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const db = firebase.database();
+
+            const loginModal = document.getElementById('login-modal');
+            const emailInput = document.getElementById('email-input');
+            const passwordInput = document.getElementById('password-input');
+            const loginBtn = document.getElementById('login-btn');
+            const uploadModal = document.getElementById('upload-modal');
+            const fileInput = document.getElementById('file-input');
+            const uploadFileBtn = document.getElementById('upload-file-btn');
+
+            let professorName = '';
+
+            // Show login modal by default
+            loginModal.style.display = 'flex';
+
+            loginBtn.addEventListener('click', () => {
+                const email = emailInput.value.trim();
+                const password = passwordInput.value.trim();
+
+                if (!email || !password) {
+                    showToast('Please fill in all fields');
+                    return;
+                }
+
+                auth.signInWithEmailAndPassword(email, password)
+                    .then(async (userCredential) => {
+                        const user = userCredential.user;
+                        const professorEmail = user.email.replace(/[.@]/g, '_');
+
+                        try {
+                            const professorsRef = db.ref('professors');
+                            const professorSnapshot = await professorsRef.once('value');
+                            let professorFound = false;
+
+                            professorSnapshot.forEach((childSnapshot) => {
+                                const professor = childSnapshot.val();
+                                if (professor.email === user.email) {
+                                    professorFound = true;
+                                    professorName = professor.name || 'Professor';
+                                }
+                            });
+
+                            if (!professorFound) {
+                                showToast('Professor data not found. Please contact support.');
+                                auth.signOut();
+                                return;
+                            }
+
+                            loginModal.style.display = 'none';
+                            uploadModal.style.display = 'flex';
+                        } catch (error) {
+                            showToast('Error loading professor data: ' + error.message);
+                            console.error('Error in login:', error.message);
+                        }
+                    })
+                    .catch((error) => {
+                        showToast('Login failed: ' + error.message);
+                        console.error('Login error:', error.message);
+                    });
+            });
+
+            // Encryption functions
+            const BASE_PASSPHRASE = 'ISET_Siliana_Secure_2025!@#$';
+
+            function deriveKey(salt) {
+                return CryptoJS.PBKDF2(BASE_PASSPHRASE, salt, {
+                    keySize: 256 / 32,
+                    iterations: 10000
+                }).toString();
+            }
+
+            function encryptData(data, salt) {
+                const key = deriveKey(salt);
+                return CryptoJS.AES.encrypt(data, key).toString();
+            }
+
+            uploadFileBtn.addEventListener('click', async () => {
+                const file = fileInput.files[0];
+                if (!file) {
+                    showToast('Please select a file');
+                    return;
+                }
+
+                const maxSize = 10 * 1024 * 1024;
+                if (file.size > maxSize) {
+                    showToast('File too large. Max 10 MB.');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    const base64String = e.target.result.split(',')[1];
+                    const salt = CryptoJS.lib.WordArray.random(16).toString();
+                    const encryptedData = encryptData(base64String, salt);
+                    const chunkSize = 4 * 1024 * 1024;
+                    const chunks = [];
+                    for (let i = 0; i < encryptedData.length; i += chunkSize) {
+                        chunks.push(encryptedData.substring(i, i + chunkSize));
+                    }
+
+                    const fileName = sanitizeInput(file.name);
+                    const fileType = file.type || 'application/octet-stream';
+                    const uploadDate = new Date().toISOString();
+
+                    const newFileRef = db.ref('sharedFiles').push();
+                    await newFileRef.set({
+                        fileName,
+                        fileType,
+                        uploadDate,
+                        professorName,
+                        subject: 'IT11',
+                        chunks,
+                        chunkCount: chunks.length,
+                        salt
+                    });
+
+                    showToast('File uploaded successfully');
+                    uploadModal.style.display = 'none';
+                    fileInput.value = '';
+                };
+                reader.readAsDataURL(file);
+            });
+
+            function sanitizeInput(input) {
+                const div = document.createElement('div');
+                div.textContent = input;
+                return div.innerHTML;
+            }
+
+            // Close upload modal when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!uploadModal.querySelector('#upload-modal-content').contains(e.target) && uploadModal.style.display === 'flex') {
+                    uploadModal.style.display = 'none';
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

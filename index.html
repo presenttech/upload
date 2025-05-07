@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>ISET Siliana Professor - File Upload</title>
+    <title>File Upload</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -22,7 +22,7 @@
             background-color: #f8fafc;
             color: #2d3748;
             min-height: 100vh;
-            transition: background-color 0.3s ease, color 0.3s ease;
+            transition: background-color 0.3s ease;
             user-select: none;
             overflow-x: hidden;
             display: flex;
@@ -209,7 +209,7 @@
     </div>
     <div id="upload-modal" class="modal">
         <div id="upload-modal-content" class="modal-content">
-            <h2>Share a File</h2>
+            <h2>Upload File</h2>
             <input type="file" id="file-input" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt" aria-label="Select file to upload">
             <button class="upload-btn" id="upload-file-btn" aria-label="Upload file">Upload</button>
         </div>
@@ -265,8 +265,6 @@
             const fileInput = document.getElementById('file-input');
             const uploadFileBtn = document.getElementById('upload-file-btn');
 
-            let professorName = '';
-
             // Show login modal by default
             loginModal.style.display = 'flex';
 
@@ -280,35 +278,10 @@
                 }
 
                 auth.signInWithEmailAndPassword(email, password)
-                    .then(async (userCredential) => {
+                    .then((userCredential) => {
                         const user = userCredential.user;
-                        const professorEmail = user.email.replace(/[.@]/g, '_');
-
-                        try {
-                            const professorsRef = db.ref('professors');
-                            const professorSnapshot = await professorsRef.once('value');
-                            let professorFound = false;
-
-                            professorSnapshot.forEach((childSnapshot) => {
-                                const professor = childSnapshot.val();
-                                if (professor.email === user.email) {
-                                    professorFound = true;
-                                    professorName = professor.name || 'Professor';
-                                }
-                            });
-
-                            if (!professorFound) {
-                                showToast('Professor data not found. Please contact support.');
-                                auth.signOut();
-                                return;
-                            }
-
-                            loginModal.style.display = 'none';
-                            uploadModal.style.display = 'flex';
-                        } catch (error) {
-                            showToast('Error loading professor data: ' + error.message);
-                            console.error('Error in login:', error.message);
-                        }
+                        loginModal.style.display = 'none';
+                        uploadModal.style.display = 'flex';
                     })
                     .catch((error) => {
                         showToast('Login failed: ' + error.message);
@@ -364,8 +337,6 @@
                         fileName,
                         fileType,
                         uploadDate,
-                        professorName,
-                        subject: 'IT11',
                         chunks,
                         chunkCount: chunks.length,
                         salt

@@ -332,6 +332,71 @@
                     });
             });
 
+            // Improved file upload function with better progress tracking
+            async function uploadFileWithProgress(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        const base64String = e.target.result.split(',')[1];
+                        const chunkSize = 1 * 1024 * 1024; // 1MB chunks for smoother progress
+                        const chunks = [];
+                        
+                        for (let i = 0; i < base64String.length; i += chunkSize) {
+                            chunks.push(base64String.substring(i, i + chunkSize));
+                        }
+
+                        const fileName = sanitizeInput(file.name);
+                        let fileType = file.type || 'application/octet-stream';
+                        
+                        // Ensure correct MIME type for PPTX files
+                        if (fileName.toLowerCase().endsWith('.pptx')) {
+                            fileType = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+                        }
+
+                        const newFileRef = db.ref('sharedFiles').push();
+                        const fileId = newFileRef.key;
+
+                        let uploadedChunks = 0;
+                        const totalChunks = chunks.length;
+
+                        // Update progress function
+                        const updateProgress = () => {
+                            uploadedChunks++;
+                            const percentage = Math.min(100, Math.round((uploadedChunks / totalChunks) * 100));
+                            progressFill.style.width = `${percentage}%`;
+                            progressText.textContent = `${percentage}%`;
+                        };
+
+                        try {
+                            // Upload chunks with progress tracking
+                            const uploadPromises = chunks.map((chunk, index) => {
+                                return db.ref(`sharedFiles/${fileId}/chunks/${index}`).set(chunk)
+                                    .then(() => {
+                                        updateProgress();
+                                    });
+                            });
+
+                            await Promise.all(uploadPromises);
+
+                            // Set file metadata
+                            await newFileRef.update({
+                                fileName,
+                                fileType,
+                                chunkCount: chunks.length,
+                                size: file.size,
+                                timestamp: firebase.database.ServerValue.TIMESTAMP
+                            });
+
+                            resolve(fileId);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                    reader.onerror = (error) => reject(error);
+                    reader.readAsDataURL(file);
+                });
+            }
+
             uploadFileBtn.addEventListener('click', async () => {
                 const file = fileInput.files[0];
                 if (!file) {
@@ -339,7 +404,7 @@
                     return;
                 }
 
-                const maxSize = 20 * 1024 * 1024; // Allow up to 20 MB
+                const maxSize = 20 * 1024 * 1024; // 20 MB
                 if (file.size > maxSize) {
                     showToast('File too large. Max 20 MB.');
                     return;
@@ -350,62 +415,18 @@
                 progressFill.style.width = '0%';
                 progressText.textContent = '0%';
 
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                    const base64String = e.target.result.split(',')[1];
-                    const chunkSize = 6 * 1024 * 1024; // 6 MB chunks
-                    const chunks = [];
-                    for (let i = 0; i < base64String.length; i += chunkSize) {
-                        chunks.push(base64String.substring(i, i + chunkSize));
-                    }
-
-                    const fileName = sanitizeInput(file.name);
-                    const fileType = file.type || 'application/octet-stream';
-
-                    try {
-                        const newFileRef = db.ref('sharedFiles').push();
-                        const fileId = newFileRef.key;
-
-                        // Track progress
-                        let chunksUploaded = 0;
-                        const totalChunks = chunks.length;
-
-                        const updateProgress = () => {
-                            chunksUploaded++;
-                            const percentage = Math.round((chunksUploaded / totalChunks) * 100);
-                            progressFill.style.width = `${percentage}%`;
-                            progressText.textContent = `${percentage}%`;
-                        };
-
-                        // Upload chunks in parallel with progress tracking
-                        const chunkUploads = chunks.map((chunk, index) => {
-                            return db.ref(`sharedFiles/${fileId}/chunks/${index}`).set(chunk).then(() => {
-                                updateProgress();
-                            });
-                        });
-
-                        await Promise.all(chunkUploads);
-
-                        // Set metadata after chunks are uploaded
-                        await newFileRef.update({
-                            fileName,
-                            fileType,
-                            chunkCount: chunks.length
-                        });
-
-                        showToast('File uploaded successfully');
-                        uploadModal.style.display = 'none';
-                        fileInput.value = '';
-                        progressContainer.style.display = 'none';
-                    } catch (error) {
-                        showToast('Upload failed: ' + error.message);
-                        console.error('Upload error:', error.message);
-                        progressContainer.style.display = 'none';
-                    } finally {
-                        uploadFileBtn.disabled = false;
-                    }
-                };
-                reader.readAsDataURL(file);
+                try {
+                    await uploadFileWithProgress(file);
+                    showToast('File uploaded successfully!');
+                    uploadModal.style.display = 'none';
+                    fileInput.value = '';
+                } catch (error) {
+                    console.error('Upload error:', error);
+                    showToast('Upload failed: ' + error.message);
+                } finally {
+                    uploadFileBtn.disabled = false;
+                    progressContainer.style.display = 'none';
+                }
             });
 
             function sanitizeInput(input) {
